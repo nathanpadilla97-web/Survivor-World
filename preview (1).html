@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Survivor: The World — Two-Sided Game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+:root{--dark:#111827;--blue:#2563eb;--green:#059669;--red:#dc2626;--gray:#4b5563;--orange:#ea580c}
+body{font-family:Arial,sans-serif;background:#f4f4f4;margin:0;color:#222}
+header{background:var(--dark);color:white;padding:16px 22px;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+h1,h2,h3{margin-top:0}
+main{padding:16px}
+button,.btn{cursor:pointer;border:0;border-radius:8px;padding:8px 11px;font-weight:bold;background:var(--blue);color:white;margin:3px;text-decoration:none;display:inline-block}
+button.good{background:var(--green)} button.danger{background:var(--red)} button.gray{background:var(--gray)} button.orange{background:var(--orange)}
+input,select,textarea{border:1px solid #bbb;border-radius:7px;padding:7px;box-sizing:border-box}
+textarea{width:100%;min-height:72px}
+.card{background:white;border-radius:12px;padding:14px;box-shadow:0 2px 8px #0002;margin-bottom:14px}
+.grid{display:grid;grid-template-columns:repeat(4,minmax(220px,1fr));gap:14px}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.three{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+.stats{display:grid;grid-template-columns:1fr 80px;gap:6px;align-items:center}
+.stats input{width:76px;text-align:right}
+.stat{display:flex;justify-content:space-between;border-bottom:1px solid #eee;padding:6px 0}
+.qol{font-size:18px;font-weight:bold;background:#eef2ff;padding:9px;border-radius:8px;margin:8px 0}
+.alert{background:#fff7ed;border-left:5px solid var(--orange);padding:12px;border-radius:8px;margin:12px 0}
+.log{height:230px;overflow:auto;background:#111827;color:#e5e7eb;padding:10px;border-radius:8px;font-family:Consolas,monospace;font-size:13px;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;background:white}
+th,td{border-bottom:1px solid #ddd;padding:8px;text-align:left}
+th{background:#111827;color:white}
+.small{font-size:12px;color:#666}
+.hidden{display:none!important}
+.pending{border-left:5px solid var(--blue)}
+.rolebox{background:#f9fafb;border:1px solid #e5e7eb;border-radius:10px;padding:10px;margin-bottom:10px}
+.rolebox.complete{border-color:var(--green);background:#ecfdf5}
+.topnav select{width:auto}
+.badge{display:inline-block;border-radius:999px;padding:3px 8px;font-size:12px;background:#e5e7eb;margin-left:5px}
+.home{max-width:850px;margin:40px auto}
+.homegrid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.studentCountryCard{cursor:pointer;border:2px solid transparent}
+.studentCountryCard:hover{border-color:var(--blue)}
+@media(max-width:1000px){.grid{grid-template-columns:repeat(2,1fr)}.two,.three,.homegrid{grid-template-columns:1fr}}
+@media(max-width:650px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <div>
+    <h1>Survivor: The World</h1>
+    <div class="small" style="color:#d1d5db">Two-Sided Teacher + Student Classroom Game</div>
+  </div>
+  <div class="topnav">
+    <button onclick="showHome()" class="gray">Home</button>
+    <button onclick="showTeacher()">Teacher Side</button>
+    <button onclick="showStudentSelect()" class="good">Student Side</button>
+  </div>
+</header>
+
+<main>
+<section id="homeView" class="home">
+  <div class="card">
+    <h2>Choose a Side</h2>
+    <p><strong>Teacher Side:</strong> control countries, approve decisions, trigger events, and run rounds.</p>
+    <p><strong>Student Side:</strong> students choose their country, complete role tasks, and submit decisions.</p>
+    <p class="small">This single-file version saves to this browser. For easiest classroom use, open teacher side on your projected computer and open student side in another tab/window or on stations using the same browser profile. True separate-device live sync requires a hosted database.</p>
+    <div class="homegrid">
+      <button onclick="showTeacher()" style="font-size:18px;padding:18px">Open Teacher Dashboard</button>
+      <button onclick="showStudentSelect()" class="good" style="font-size:18px;padding:18px">Open Student Dashboard</button>
+    </div>
+  </div>
+</section>
+
+<section id="teacherView" class="hidden">
+  <div class="card">
+    <h2>Teacher Dashboard</h2>
+    <strong>Round:</strong> <input id="round" type="number" value="1" style="width:70px">
+    <button onclick="nextRound()">Next Round / Collect Revenue</button>
+    <button onclick="randomEvent()" class="orange">Random Event</button>
+    <button onclick="toggleSubmissions()" id="subToggle" class="good">Submissions Open</button>
+    <button onclick="saveGame()" class="gray">Save</button>
+    <button onclick="loadGame()" class="gray">Load</button>
+    <button onclick="resetGame()" class="danger">Reset</button>
+  </div>
+
+  <div class="alert">
+    <strong>World News Alert:</strong>
+    <div id="teacherNewsText"></div>
+    <input id="customAlert" placeholder="Type custom alert..." style="width:70%;margin-top:8px">
+    <button onclick="sendCustomAlert()">Send Alert</button>
+  </div>
+
+  <div id="teacherCountries" class="grid"></div>
+
+  <div class="card">
+    <h2>Leaderboard</h2>
+    <table>
+      <thead><tr><th>Rank</th><th>Country</th><th>QOL</th><th>Treasury</th><th>Population</th><th>Final Score</th></tr></thead>
+      <tbody id="leaderboard"></tbody>
+    </table>
+  </div>
+
+  <div class="two">
+    <div class="card">
+      <h2>Pending Student Decisions</h2>
+      <div id="pendingList"></div>
+    </div>
+    <div class="card">
+      <h2>World Events</h2>
+      <button onclick="eventGlobalRecession()">Global Recession</button>
+      <button onclick="eventPandemic()">Pandemic</button>
+      <button onclick="eventDrought()">Major Drought</button>
+      <button onclick="eventResourceDiscovery()">Oil/Mineral Discovery</button>
+      <button onclick="eventCivilUnrest()">Civil Unrest</button>
+      <button onclick="eventDisaster()">Earthquake/Flood</button>
+      <button onclick="eventTech()">Technology Breakthrough</button>
+      <button onclick="eventAid()">International Aid Package</button>
+      <button onclick="eventBorderConflict()">Border Conflict</button>
+      <button onclick="eventClimate()">Climate Disaster</button>
+      <h3>Manual Teacher Actions</h3>
+      <select id="manualCountry"></select>
+      <select id="manualAction"></select>
+      <input id="manualAmount" type="number" value="10" style="width:80px"> $B
+      <select id="manualTarget"></select>
+      <button onclick="manualApply()">Apply Manual Action</button>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Round Log</h2>
+    <div id="log" class="log"></div>
+  </div>
+</section>
+
+<section id="studentSelectView" class="hidden">
+  <div class="card">
+    <h2>Student Side: Choose Your Country</h2>
+    <p class="small">Each country submits one decision per round. All three role responses are required before submitting.</p>
+  </div>
+  <div id="studentCountrySelectCards" class="grid"></div>
+</section>
+
+<section id="studentView" class="hidden">
+  <div class="card">
+    <button onclick="showStudentSelect()" class="gray">Back to Country Select</button>
+    <h2 id="studentCountryName"></h2>
+    <div class="alert"><strong>World Alert:</strong> <span id="studentNewsText"></span></div>
+    <div id="studentStats"></div>
+  </div>
+
+  <div class="card">
+    <h2>Country Decision Form <span class="badge" id="studentRoundBadge"></span></h2>
+    <p class="small">Your country cannot submit until Leader, Economy Minister, and Citizen Representative all answer.</p>
+
+    <label><strong>Choose Action</strong></label>
+    <select id="studentAction" onchange="studentActionHelp()"></select>
+    <p id="studentHelp" class="small"></p>
+
+    <label><strong>Amount to spend ($B)</strong></label>
+    <input id="studentAmount" type="number" value="10" style="width:120px">
+
+    <label><strong>Target Country if needed</strong></label>
+    <select id="studentTarget"></select>
+
+    <div class="three">
+      <div class="rolebox" id="leaderBox">
+        <h3>Leader</h3>
+        <p class="small">What is our final decision and why?</p>
+        <textarea id="leaderResponse" oninput="checkRoleCompletion()"></textarea>
+      </div>
+      <div class="rolebox" id="economyBox">
+        <h3>Economy Minister</h3>
+        <p class="small">Can we afford this? What will it cost?</p>
+        <textarea id="economyResponse" oninput="checkRoleCompletion()"></textarea>
+      </div>
+      <div class="rolebox" id="citizenBox">
+        <h3>Citizen Representative</h3>
+        <p class="small">How will this affect ordinary people?</p>
+        <textarea id="citizenResponse" oninput="checkRoleCompletion()"></textarea>
+      </div>
+    </div>
+
+    <button id="submitBtn" onclick="submitStudentDecision()" class="good" disabled>Submit Decision</button>
+    <span id="submitStatus" class="small"></span>
+  </div>
+
+  <div class="card">
+    <h2>My Submitted Decisions</h2>
+    <div id="mySubmissions"></div>
+  </div>
+</section>
+</main>
+
+<script>
+let game = {
+  submissionsOpen:true,
+  news:"Welcome leaders. Your goal is to create the best country to live in, not just the richest.",
+  log:[],
+  submissions:[],
+  countries:[
+    {name:"Aurora",treasury:180,population:8,food:75,health:85,education:90,military:70,stability:90,happiness:80,startPop:8,startQol:84},
+    {name:"Vespera",treasury:60,population:12,food:60,health:65,education:60,military:45,stability:55,happiness:55,startPop:12,startQol:59},
+    {name:"Solari",treasury:35,population:15,food:55,health:50,education:45,military:60,stability:35,happiness:40,startPop:15,startQol:45},
+    {name:"Naru",treasury:8,population:6,food:35,health:30,education:30,military:20,stability:40,happiness:45,startPop:6,startQol:36}
+  ]
+};
+let currentStudentCountry = null;
+
+const actionLabels = {
+  food:"Invest in Food Systems",
+  health:"Invest in Healthcare",
+  education:"Build Schools",
+  infrastructure:"Build Infrastructure",
+  military:"Expand Military",
+  economy:"Invest in Economy / Industry",
+  trade:"Trade Agreement",
+  accept_refugees:"Accept Refugees",
+  refuse_refugees:"Refuse Refugees",
+  aid:"Ask for Foreign Aid",
+  loan:"Take International Loan",
+  sanction:"Sanction Another Country",
+  invade:"Invade Another Country",
+  propaganda:"Propaganda Campaign",
+  reform:"Anti-Corruption Reform"
+};
+const actionHelp = {
+  food:"Tie to Green Revolution: improves food security. Spend $1-4B = +2, $5-9B = +5, $10-19B = +10, $20B+ = +15 Food.",
+  health:"Tie to public health systems and pandemics. Improves Health and survival.",
+  education:"Tie to South Korea after war. Long-term growth through education.",
+  infrastructure:"Tie to New Deal/building projects. Improves Stability and some Education.",
+  military:"Tie to Cold War arms race. Improves Military but costs money.",
+  economy:"Tie to industrialization. Can increase future wealth.",
+  trade:"Tie to globalization/NAFTA. Both countries gain +$5B, +5 Food, +2 Stability.",
+  accept_refugees:"Tie to WWII/Syrian refugees. +1M Population, -$5B, +3 Happiness, -2 Stability.",
+  refuse_refugees:"Tie to restrictive immigration policy. No immediate cost, but -5 Happiness and -2 Stability.",
+  aid:"Tie to foreign aid systems. +$10B, +3 Stability.",
+  loan:"Tie to IMF/debt crises. +$20B now, -2 Happiness. Teacher may add interest later.",
+  sanction:"Tie to sanctions on Iran/Russia. Target loses $10B, -5 Stability, -5 Happiness.",
+  invade:"Tie to WWII/Iraq War/imperialism. War hurts both sides even if there is a winner.",
+  propaganda:"Tie to WWII propaganda. Raises Happiness/Stability but can be manipulation.",
+  reform:"Tie to anti-corruption reforms. Raises Stability and Happiness."
+};
+
+const clamp=(n,min,max)=>Math.max(min,Math.min(max,n));
+const qol=c=>Math.round((c.food+c.health+c.education+c.stability+c.happiness)/5);
+const gain=a=>a>=20?15:a>=10?10:a>=5?5:a>=1?2:0;
+function finalScore(c){
+  let q=qol(c);
+  let qPts=q>=90?40:q>=80?35:q>=70?30:q>=60?25:q>=50?20:10;
+  let ePts=c.treasury>=150?15:c.treasury>=100?12:c.treasury>=75?10:c.treasury>=50?8:5;
+  let loss=((c.startPop-c.population)/c.startPop)*100;
+  let pPts=loss<5?15:loss<=10?10:5;
+  let sPts=c.stability>=80?15:c.stability>=60?10:5;
+  let growth=q-c.startQol;
+  let gPts=growth>=20?15:growth>=10?10:growth>=5?5:0;
+  return qPts+ePts+pPts+sPts+gPts;
+}
+function normalize(c){
+  ["food","health","education","military","stability","happiness"].forEach(k=>c[k]=clamp(Math.round(c[k]),0,100));
+  c.treasury=Math.round(c.treasury);
+  c.population=Math.max(0,Math.round(c.population*10)/10);
+}
+function roundNum(){return Number(document.getElementById("round")?.value || localStorage.getItem("stwRound") || 1)}
+function addLog(msg){
+  game.log.unshift(`[Round ${roundNum()}] ${msg}`);
+  if(game.log.length>120) game.log=game.log.slice(0,120);
+  broadcast();
+}
+function setNews(msg){
+  game.news=msg;
+  addLog("WORLD NEWS: "+msg);
+}
+function saveGame(){
+  localStorage.setItem("survivorTwoSidedGame", JSON.stringify(game));
+  localStorage.setItem("stwRound", document.getElementById("round")?.value || 1);
+}
+function loadGame(){
+  const saved=localStorage.getItem("survivorTwoSidedGame");
+  if(saved) game=JSON.parse(saved);
+  renderAll();
+}
+function broadcast(){
+  saveGame();
+  try{localStorage.setItem("stwPing", String(Date.now()));}catch(e){}
+  renderAll();
+}
+window.addEventListener("storage", e=>{ if(e.key==="stwPing" || e.key==="survivorTwoSidedGame") loadGame(); });
+
+function resetGame(){
+  if(!confirm("Reset the entire game?")) return;
+  localStorage.removeItem("survivorTwoSidedGame");
+  localStorage.removeItem("stwRound");
+  location.reload();
+}
+
+function showOnly(id){
+  ["homeView","teacherView","studentSelectView","studentView"].forEach(x=>document.getElementById(x).classList.add("hidden"));
+  document.getElementById(id).classList.remove("hidden");
+}
+function showHome(){showOnly("homeView")}
+const TEACHER_PASSWORD='history2026';
+function showTeacher(){
+  const saved=sessionStorage.getItem('teacherAuth');
+  if(saved==='true'){showOnly("teacherView");renderAll();return;}
+  const pw=prompt('Enter teacher password:');
+  if(pw===TEACHER_PASSWORD){
+    sessionStorage.setItem('teacherAuth','true');
+    showOnly("teacherView");renderAll();
+  } else if(pw!==null){
+    alert('Incorrect password.');
+  }
+}
+function showStudentSelect(){showOnly("studentSelectView");renderAll()}
+function showStudentCountry(name){currentStudentCountry=name;showOnly("studentView");renderAll()}
+function risk(c){
+  let r=[];
+  if(c.food<30)r.push("Famine risk");
+  if(c.health<40)r.push("Health crisis");
+  if(c.stability<30)r.push("Collapse risk");
+  if(c.happiness<40)r.push("Protest risk");
+  if(c.treasury<0)r.push("Debt crisis");
+  return r.length?"Warnings: "+r.join(", "):"No major warning.";
+}
+function countryStatsHTML(c, editable=false, i=0){
+  if(editable){
+    return `<div class="qol">QOL: ${qol(c)} | Score: ${finalScore(c)}/100</div>
+    <div class="stats">
+    ${["treasury","population","food","health","education","military","stability","happiness"].map(k=>`<label>${labelStat(k)}</label><input type="number" value="${c[k]}" onchange="setCountryStat(${i},'${k}',this.value)">`).join("")}
+    </div><p class="small">${risk(c)}</p>`;
+  }
+  return `<div class="qol">QOL: ${qol(c)} | Score: ${finalScore(c)}/100</div>
+  ${["treasury","population","food","health","education","military","stability","happiness"].map(k=>`<div class="stat"><span>${labelStat(k)}</span><strong>${formatStat(k,c[k])}</strong></div>`).join("")}
+  <p class="small">${risk(c)}</p>`;
+}
+function labelStat(k){return {treasury:"Treasury",population:"Population",food:"Food",health:"Health",education:"Education",military:"Military",stability:"Stability",happiness:"Happiness"}[k]}
+function formatStat(k,v){return k==="treasury"?`$${v}B`:k==="population"?`${v}M`:v}
+function renderAll(){
+  renderTeacher();
+  renderStudentSelect();
+  renderStudent();
+}
+function renderTeacher(){
+  const tc=document.getElementById("teacherCountries"); if(!tc) return;
+  document.getElementById("teacherNewsText").textContent=game.news;
+  document.getElementById("subToggle").textContent=game.submissionsOpen?"Submissions Open":"Submissions Closed";
+  document.getElementById("subToggle").className=game.submissionsOpen?"good":"danger";
+  tc.innerHTML=game.countries.map((c,i)=>`<div class="card"><h2><input value="${c.name}" onchange="renameCountry(${i},this.value)" style="font-size:20px;font-weight:bold;width:90%"></h2>${countryStatsHTML(c,true,i)}</div>`).join("");
+  document.getElementById("leaderboard").innerHTML=[...game.countries].sort((a,b)=>finalScore(b)-finalScore(a)).map((c,i)=>`<tr><td>${i+1}</td><td>${c.name}</td><td>${qol(c)}</td><td>$${c.treasury}B</td><td>${c.population}M</td><td>${finalScore(c)}/100</td></tr>`).join("");
+  renderSelects();
+  renderPending();
+  document.getElementById("log").textContent=game.log.join("\n");
+}
+function renderSelects(){
+  const opts=game.countries.map((c,i)=>`<option value="${i}">${c.name}</option>`).join("");
+  ["manualCountry","manualTarget"].forEach(id=>{const el=document.getElementById(id); if(el) el.innerHTML=`<option value="">None</option>`+opts;});
+  const ma=document.getElementById("manualAction");
+  if(ma) ma.innerHTML=Object.keys(actionLabels).map(k=>`<option value="${k}">${actionLabels[k]}</option>`).join("");
+}
+function renderPending(){
+  const pending=game.submissions.filter(s=>s.status==="Pending");
+  document.getElementById("pendingList").innerHTML=pending.length?pending.map((s,idx)=>{
+    const realIndex=game.submissions.indexOf(s);
+    return `<div class="card pending">
+      <h3>${s.country} <span class="badge">${actionLabels[s.action]}</span></h3>
+      <p><strong>Amount:</strong> $${s.amount}B | <strong>Target:</strong> ${s.target || "None"}</p>
+      <p><strong>Leader:</strong> ${s.leader}</p>
+      <p><strong>Economy:</strong> ${s.economy}</p>
+      <p><strong>Citizen:</strong> ${s.citizen}</p>
+      <button class="good" onclick="approveSubmission(${realIndex})">Approve & Apply</button>
+      <button class="danger" onclick="denySubmission(${realIndex})">Deny</button>
+    </div>`;
+  }).join(""):"<p>No pending decisions.</p>";
+}
+function renderStudentSelect(){
+  const box=document.getElementById("studentCountrySelectCards"); if(!box)return;
+  box.innerHTML=game.countries.map(c=>`<div class="card studentCountryCard" onclick="showStudentCountry('${escapeJS(c.name)}')"><h2>${c.name}</h2>${countryStatsHTML(c,false)}</div>`).join("");
+}
+function renderStudent(){
+  if(!currentStudentCountry) return;
+  const c=game.countries.find(x=>x.name===currentStudentCountry) || game.countries[0];
+  currentStudentCountry=c.name;
+  document.getElementById("studentCountryName").textContent=c.name;
+  document.getElementById("studentNewsText").textContent=game.news;
+  document.getElementById("studentRoundBadge").textContent="Round "+roundNum();
+  document.getElementById("studentStats").innerHTML=countryStatsHTML(c,false);
+  document.getElementById("studentAction").innerHTML=Object.keys(actionLabels).map(k=>`<option value="${k}">${actionLabels[k]}</option>`).join("");
+  document.getElementById("studentTarget").innerHTML=`<option value="">None</option>`+game.countries.filter(x=>x.name!==c.name).map(x=>`<option value="${x.name}">${x.name}</option>`).join("");
+  studentActionHelp();
+  const mine=game.submissions.filter(s=>s.country===c.name);
+  document.getElementById("mySubmissions").innerHTML=mine.length?mine.map(s=>`<div class="card"><strong>Round ${s.round}:</strong> ${actionLabels[s.action]} <span class="badge">${s.status}</span><br><span class="small">Amount: $${s.amount}B | Target: ${s.target || "None"}</span></div>`).join(""):"<p>No submissions yet.</p>";
+  checkRoleCompletion();
+}
+function escapeJS(s){return s.replace(/'/g,"\\'")}
+function renameCountry(i,name){game.countries[i].name=name;broadcast()}
+function setCountryStat(i,k,v){game.countries[i][k]=Number(v);normalize(game.countries[i]);broadcast()}
+function toggleSubmissions(){game.submissionsOpen=!game.submissionsOpen;broadcast()}
+function sendCustomAlert(){const m=document.getElementById("customAlert").value.trim(); if(m) setNews(m)}
+function manualApply(){
+  const ci=document.getElementById("manualCountry").value;
+  if(ci==="") return alert("Choose a country.");
+  const action=document.getElementById("manualAction").value;
+  const amount=Number(document.getElementById("manualAmount").value||0);
+  const targetIndex=document.getElementById("manualTarget").value;
+  const target=targetIndex===""?"":game.countries[Number(targetIndex)].name;
+  applyAction(game.countries[Number(ci)].name,action,amount,target);
+  addLog(`Teacher manually applied ${actionLabels[action]} for ${game.countries[Number(ci)].name}.`);
+}
+function studentActionHelp(){const el=document.getElementById("studentHelp"); if(el) el.textContent=actionHelp[document.getElementById("studentAction").value];}
+function checkRoleCompletion(){
+  const ok=["leaderResponse","economyResponse","citizenResponse"].every(id=>document.getElementById(id)?.value.trim().length>0);
+  ["leaderBox","economyBox","citizenBox"].forEach((box,i)=>{
+    const ids=["leaderResponse","economyResponse","citizenResponse"];
+    const el=document.getElementById(box);
+    if(el) el.classList.toggle("complete",document.getElementById(ids[i]).value.trim().length>0);
+  });
+  const btn=document.getElementById("submitBtn");
+  if(btn){btn.disabled=!ok || !game.submissionsOpen; btn.textContent=game.submissionsOpen?"Submit Decision":"Submissions Closed";}
+}
+function submitStudentDecision(){
+  const sub={
+    round:roundNum(),
+    country:currentStudentCountry,
+    action:document.getElementById("studentAction").value,
+    amount:Number(document.getElementById("studentAmount").value||0),
+    target:document.getElementById("studentTarget").value,
+    leader:document.getElementById("leaderResponse").value.trim(),
+    economy:document.getElementById("economyResponse").value.trim(),
+    citizen:document.getElementById("citizenResponse").value.trim(),
+    status:"Pending",
+    time:new Date().toLocaleString()
+  };
+  game.submissions.push(sub);
+  addLog(`${sub.country} submitted ${actionLabels[sub.action]} for teacher approval.`);
+  ["leaderResponse","economyResponse","citizenResponse"].forEach(id=>document.getElementById(id).value="");
+  document.getElementById("submitStatus").textContent="Submitted. Waiting for teacher approval.";
+  broadcast();
+}
+function approveSubmission(index){
+  const s=game.submissions[index]; if(!s)return;
+  applyAction(s.country,s.action,s.amount,s.target);
+  s.status="Approved";
+  addLog(`APPROVED: ${s.country} — ${actionLabels[s.action]}.`);
+  broadcast();
+}
+function denySubmission(index){
+  const s=game.submissions[index]; if(!s)return;
+  s.status="Denied";
+  addLog(`DENIED: ${s.country} — ${actionLabels[s.action]}.`);
+  broadcast();
+}
+function findCountry(name){return game.countries.find(c=>c.name===name)}
+function applyAction(countryName,action,amount,targetName){
+  const c=findCountry(countryName); if(!c)return;
+  const g=gain(amount);
+  const spend=()=>{c.treasury-=amount}
+  if(action==="food"){spend();c.food+=g}
+  else if(action==="health"){spend();c.health+=g}
+  else if(action==="education"){spend();c.education+=g}
+  else if(action==="military"){spend();c.military+=g;if(c.happiness<50)c.stability-=3}
+  else if(action==="economy"){spend();c.treasury+=g}
+  else if(action==="infrastructure"){spend();c.stability+=g;c.education+=Math.floor(g/2)}
+  else if(action==="propaganda"){spend();c.happiness+=g;c.stability+=2}
+  else if(action==="reform"){spend();c.stability+=g;c.happiness+=g}
+  else if(action==="loan"){c.treasury+=20;c.happiness-=2}
+  else if(action==="aid"){c.treasury+=10;c.stability+=3}
+  else if(action==="accept_refugees"){c.population+=1;c.treasury-=5;c.happiness+=3;c.stability-=2}
+  else if(action==="refuse_refugees"){c.happiness-=5;c.stability-=2}
+  else if(action==="trade"){
+    const t=findCountry(targetName); if(!t){alert("Trade needs a target country.");return}
+    [c,t].forEach(x=>{x.treasury+=5;x.food+=5;x.stability+=2;normalize(x)})
+  }
+  else if(action==="sanction"){
+    const t=findCountry(targetName); if(!t){alert("Sanction needs a target country.");return}
+    t.treasury-=10;t.stability-=5;t.happiness-=5;c.happiness+=2;normalize(t)
+  }
+  else if(action==="invade"){
+    const t=findCountry(targetName); if(!t){alert("Invasion needs a target country.");return}
+    c.treasury-=10;c.population-=.5;c.military-=8;c.stability-=5;c.happiness-=5;
+    t.treasury-=10;t.population-=1;t.military-=10;t.stability-=10;t.happiness-=8;
+    if(c.military>t.military)c.treasury+=10;
+    normalize(t);
+  }
+  normalize(c);
+}
+function nextRound(){
+  const r=document.getElementById("round");
+  r.value=Number(r.value)+1;
+  localStorage.setItem("stwRound", r.value);
+  game.countries.forEach(c=>{
+    let tax=Math.round(c.population*(c.education/25)*(c.stability/70));
+    c.treasury+=tax;
+    if(c.food<30){c.population-=.3;c.happiness-=5}
+    if(c.health<40){c.population-=.2}
+    normalize(c);
+    game.log.unshift(`[Round ${r.value}] ${c.name} collects revenue: +$${tax}B.`);
+  });
+  setNews("New round begins. Countries collect revenue. Low food or health may hurt population.");
+}
+function randomEvent(){
+  const events=[eventGlobalRecession,eventPandemic,eventDrought,eventResourceDiscovery,eventCivilUnrest,eventDisaster,eventTech,eventAid,eventBorderConflict,eventClimate];
+  events[Math.floor(Math.random()*events.length)]();
+}
+function eventGlobalRecession(){setNews("GLOBAL RECESSION: economies shrink, jobs disappear, and citizens blame leaders.");game.countries.forEach(c=>{c.treasury-=c.treasury>75?15:8;c.stability-=5;c.happiness-=5;normalize(c)});broadcast()}
+function eventPandemic(){setNews("PANDEMIC: disease spreads and countries with weaker healthcare suffer more.");game.countries.forEach(c=>{c.health-=c.health>70?5:15;c.population-=c.health>70?.3:1;c.treasury-=5;normalize(c)});broadcast()}
+function eventDrought(){setNews("MAJOR DROUGHT: crops fail and food becomes harder to produce.");game.countries.forEach(c=>{c.food-=15;if(c.food<30)c.population-=.5;c.happiness-=3;normalize(c)});broadcast()}
+function eventResourceDiscovery(){let c=game.countries[Math.floor(Math.random()*game.countries.length)];setNews(`${c.name} discovers oil or minerals. Wealth rises, but corruption risk grows.`);c.treasury+=20;c.happiness+=5;c.stability-=3;normalize(c);broadcast()}
+function eventCivilUnrest(){setNews("CIVIL UNREST: citizens protest corruption, poverty, or lack of opportunity.");game.countries.forEach(c=>{if(c.happiness<55||c.stability<55){c.stability-=10;c.treasury-=5}normalize(c)});broadcast()}
+function eventDisaster(){let c=game.countries[Math.floor(Math.random()*game.countries.length)];setNews(`${c.name} is hit by an earthquake or flood. Infrastructure and lives are lost.`);c.population-=1;c.treasury-=10;c.stability-=10;c.food-=5;normalize(c);broadcast()}
+function eventTech(){let c=[...game.countries].sort((a,b)=>b.education-a.education)[0];setNews(`${c.name} has a technology breakthrough because of its education system.`);c.treasury+=15;c.education+=5;c.happiness+=5;normalize(c);broadcast()}
+function eventAid(){let c=[...game.countries].sort((a,b)=>a.treasury-b.treasury)[0];setNews(`${c.name} receives an international aid package.`);c.treasury+=15;c.stability+=5;c.happiness+=5;normalize(c);broadcast()}
+function eventBorderConflict(){let c=game.countries[Math.floor(Math.random()*game.countries.length)];setNews(`${c.name} is pulled into a border conflict.`);c.military-=5;c.treasury-=5;c.stability-=5;normalize(c);broadcast()}
+function eventClimate(){setNews("CLIMATE DISASTER: vulnerable countries suffer flooding, heat, or crop damage.");game.countries.forEach(c=>{if(c.food<60||c.treasury<50){c.food-=10;c.treasury-=8;c.population-=.5}normalize(c)});broadcast()}
+
+loadGame();
+renderAll();
+</script>
+</body>
+</html>
